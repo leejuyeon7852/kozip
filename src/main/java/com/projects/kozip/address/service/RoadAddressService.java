@@ -46,7 +46,8 @@ public class RoadAddressService {
                 address.getEupmyeondong(),
                 address.getRoadName(),
                 String.valueOf(address.getBuildingMain()),
-                address.getBuildingSub() != 0 ? "-" + address.getBuildingSub() : ""
+                address.getBuildingSub() != 0 ? "-" + address.getBuildingSub() : "",
+                address.getBuildingName() != null ? "(" + address.getBuildingName() + ")" : ""
         ).trim();
 
         return AddressResponse.builder()
