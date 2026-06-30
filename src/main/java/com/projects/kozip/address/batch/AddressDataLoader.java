@@ -29,8 +29,8 @@ public class AddressDataLoader implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
-        if(repository.count() > 0){
-            log.info("주소 데이터가 이미 존재합니다.");
+        if (repository.count() > 0) {
+            log.info("주소 데이터가 이미 존재합니다. 적재를 건너뜁니다.");
             return;
         }
 
@@ -38,12 +38,12 @@ public class AddressDataLoader implements ApplicationRunner {
         File[] files = dir.listFiles((d, name) ->
                 name.startsWith("rnaddrkor_") && name.endsWith(".txt"));
 
-        if (files == null || files.length == 0){
+        if (files == null || files.length == 0) {
             log.warn("적재할 파일이 없습니다. 경로: {}", properties.getPath());
             return;
         }
 
-        for (File file: files){
+        for (File file : files) {
             log.info("적재 시작: {}", file.getName());
             loadFile(file);
             log.info("적재 완료: {}", file.getName());
@@ -53,38 +53,37 @@ public class AddressDataLoader implements ApplicationRunner {
     private void loadFile(File file) throws Exception {
         List<RoadAddress> batch = new ArrayList<>();
 
-        try(BufferedReader reader = new BufferedReader(
-                new InputStreamReader(new FileInputStream(file), Charset.forName("EUC-KR"))
-        )){
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(new FileInputStream(file), Charset.forName("EUC-KR")))) {
+
             String line;
-            while((line = reader.readLine())!= null){
+            while ((line = reader.readLine()) != null) {
                 String[] col = line.split("\\|", -1);
-                if(col.length < 24) continue;
+                if (col.length < 24) continue;
 
-                RoadAddress address = parse(col);
-                batch.add(address);
+                batch.add(parse(col));
 
-                if(batch.size() == BATCH_SIZE){
+                if (batch.size() == BATCH_SIZE) {
                     repository.saveAll(batch);
                     batch.clear();
                 }
             }
 
-            if (!batch.isEmpty()){
+            if (!batch.isEmpty()) {
                 repository.saveAll(batch);
             }
         }
     }
 
-    private RoadAddress parse(String[] col){
-        String buildingName = !col[22].isBlank() ? col[22]: col[23];
+    private RoadAddress parse(String[] col) {
+        String buildingName = !col[22].isBlank() ? col[22] : col[23];
 
         return RoadAddress.builder()
                 .manageNo(col[0])
                 .sido(col[2])
-                .sigungu(col[3].isBlank() ? null: col[3])
+                .sigungu(col[3].isBlank() ? null : col[3])
                 .eupmyeondong(col[4])
-                .ri(col[5].isBlank() ? null: col[5])
+                .ri(col[5].isBlank() ? null : col[5])
                 .jibunMain(Integer.parseInt(col[7]))
                 .jibunSub(Integer.parseInt(col[8]))
                 .roadName(col[10])
