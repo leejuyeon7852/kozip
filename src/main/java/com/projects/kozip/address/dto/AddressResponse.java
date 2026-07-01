@@ -7,5 +7,6 @@ import lombok.Getter;
 @Builder
 public class AddressResponse {
     private String zipCode;
-    private String address;
+    private String roadAddress;
+    private String jibunAddress;
 }
