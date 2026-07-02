@@ -41,15 +41,15 @@ public class RoadAddressService {
         }
 
         String[] parts = trimmed.split("\\s+");
-        String keyword = parts[0];
         Integer buildingMain = null;
+        String[] keywordParts = parts;
 
         if (parts.length > 1 && parts[parts.length - 1].matches("\\d+")) {
             buildingMain = Integer.parseInt(parts[parts.length - 1]);
-            keyword = String.join(" ", Arrays.copyOf(parts, parts.length - 1));
+            keywordParts = Arrays.copyOf(parts, parts.length - 1);
         }
 
-        keyword = keyword.replaceAll("\\s+", "");
+        String keyword = String.join("", keywordParts);
 
         if (keyword.length() < 2) {
             return AddressSearchResponse.builder()
@@ -59,7 +59,11 @@ public class RoadAddressService {
                     .build();
         }
 
-        long count = repository.countSearch(keyword, buildingMain);
+        String matchKeyword = Arrays.stream(keywordParts)
+                .map(p -> "+" + p + "*")
+                .collect(java.util.stream.Collectors.joining(" "));
+
+        long count = repository.countSearch(matchKeyword, buildingMain);
 
         if (count > TOO_MANY_RESULTS) {
             return AddressSearchResponse.builder()
@@ -69,7 +73,7 @@ public class RoadAddressService {
                     .build();
         }
 
-        List<RoadAddress> addresses = repository.search(keyword, buildingMain);
+        List<RoadAddress> addresses = repository.search(matchKeyword, buildingMain);
         List<AddressResponse> results = addresses.stream()
                 .map(this::toResponse)
                 .toList();
