@@ -18,7 +18,17 @@ public class RoadAddressService {
     private static final int TOO_MANY_RESULTS = 1000;
 
     public AddressSearchResponse search(String query) {
-        if (repository.existsBySidoContaining(query) || repository.existsBySigunguContaining(query)) {
+        String trimmed = query.trim();
+
+        if (trimmed.length() < 2) {
+            return AddressSearchResponse.builder()
+                    .message("검색어는 2글자 이상 입력해주세요.")
+                    .count(0)
+                    .results(List.of())
+                    .build();
+        }
+
+        if (repository.existsBySidoContaining(trimmed) || repository.existsBySigunguContaining(trimmed)) {
             return AddressSearchResponse.builder()
                     .message("더 자세하게 검색해주세요.")
                     .count(0)
@@ -26,13 +36,27 @@ public class RoadAddressService {
                     .build();
         }
 
-        String[] parts = query.trim().split("\\s+");
+        if (trimmed.matches("\\d{5}")) {
+            return searchByZipCode(trimmed);
+        }
+
+        String[] parts = trimmed.split("\\s+");
         String keyword = parts[0];
         Integer buildingMain = null;
 
         if (parts.length > 1 && parts[parts.length - 1].matches("\\d+")) {
             buildingMain = Integer.parseInt(parts[parts.length - 1]);
             keyword = String.join(" ", Arrays.copyOf(parts, parts.length - 1));
+        }
+
+        keyword = keyword.replaceAll("\\s+", "");
+
+        if (keyword.length() < 2) {
+            return AddressSearchResponse.builder()
+                    .message("검색어는 2글자 이상 입력해주세요.")
+                    .count(0)
+                    .results(List.of())
+                    .build();
         }
 
         long count = repository.countSearch(keyword, buildingMain);
@@ -46,6 +70,18 @@ public class RoadAddressService {
         }
 
         List<RoadAddress> addresses = repository.search(keyword, buildingMain);
+        List<AddressResponse> results = addresses.stream()
+                .map(this::toResponse)
+                .toList();
+
+        return AddressSearchResponse.builder()
+                .count(results.size())
+                .results(results)
+                .build();
+    }
+
+    private AddressSearchResponse searchByZipCode(String zipCode) {
+        List<RoadAddress> addresses = repository.findByZipCode(zipCode);
         List<AddressResponse> results = addresses.stream()
                 .map(this::toResponse)
                 .toList();
