@@ -24,4 +24,6 @@ public interface RoadAddressRepository extends JpaRepository<RoadAddress, String
             "r.dong LIKE %:keyword% OR r.buildingName LIKE %:keyword%) " +
             "AND (:buildingMain IS NULL OR r.buildingMain = :buildingMain)")
     long countSearch(@Param("keyword") String keyword, @Param("buildingMain") Integer buildingMain);
+
+    List<RoadAddress> findByZipCode(String zipCode);
 }
