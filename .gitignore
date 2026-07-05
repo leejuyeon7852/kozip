@@ -35,3 +35,8 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Gatling loadtest ###
+loadtest/.m2/
+loadtest/target/
+loadtest/.mvn/wrapper/dists/
