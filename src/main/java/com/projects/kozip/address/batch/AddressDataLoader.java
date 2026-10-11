@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -19,6 +20,11 @@ import java.util.List;
 
 @Slf4j
 @Component
+@ConditionalOnProperty(
+        prefix = "kozip.data",
+        name = "load-enabled",
+        havingValue = "true"
+)
 @RequiredArgsConstructor
 public class AddressDataLoader implements ApplicationRunner {
 
