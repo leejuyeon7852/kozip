@@ -1,12 +1,12 @@
 ---
-name: '♻️ Refactor'
+name: '🛠️ Refactor'
 about: 기존 코드 구조 개선
-title: '♻️ [Refactor] '
-labels: '♻️ Refactor'
+title: '🛠️ [Refactor] '
+labels: '🛠️ Refactor'
 assignees: ''
 ---
 
-## ♻️ 개선 목적
+## 🛠️ 개선 목적
 현재 구조의 문제와 개선할 이유를 적어주세요.
 
 ## 🔍 변경 범위

@@ -1,12 +1,12 @@
 ---
-name: '🔧 Fix'
+name: '🐞 Fix'
 about: 확인된 문제의 수정 작업
-title: '🔧 [Fix] '
-labels: '🔧 Fix'
+title: '🐞 [Fix] '
+labels: '🐞 Fix'
 assignees: ''
 ---
 
-## 🔧 수정할 문제
+## 🐞 수정할 문제
 문제와 관련 이슈 번호를 적어주세요.
 
 ## 🛠️ 수정 계획
