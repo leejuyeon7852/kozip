@@ -40,3 +40,5 @@ out/
 loadtest/.m2/
 loadtest/target/
 loadtest/.mvn/wrapper/dists/
+
+.env.docker
