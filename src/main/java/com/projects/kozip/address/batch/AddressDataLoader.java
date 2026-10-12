@@ -93,7 +93,9 @@ public class AddressDataLoader implements ApplicationRunner {
                     saveWithRetry(batch, file, fingerprint, lineNumber, false);
                     batch.clear();
                     lastCheckpoint = lineNumber;
-                    log.info("{}: {}행 저장 완료", file.getName(), lineNumber);
+                    if (lineNumber % 10_000 == 0) {
+                        log.info("{}: {}행 저장 완료", file.getName(), lineNumber);
+                    }
                 }
             }
 
