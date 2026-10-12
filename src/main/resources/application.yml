@@ -6,6 +6,8 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 30
+      data-source-properties:
+        rewriteBatchedStatements: true
   jpa:
     open-in-view: false
     hibernate:
@@ -19,6 +21,7 @@ kozip:
   data:
     path: ${DATA_PATH:}
     load-enabled: ${DATA_LOAD_ENABLED:false}
+    batch-size: ${DATA_BATCH_SIZE:1000}
 
 springdoc:
   swagger-ui:
