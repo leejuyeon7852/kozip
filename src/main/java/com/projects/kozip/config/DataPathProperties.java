@@ -11,5 +11,6 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "kozip.data")
 public class DataPathProperties {
     private String path;
+    private int batchSize = 1000;
 }
 

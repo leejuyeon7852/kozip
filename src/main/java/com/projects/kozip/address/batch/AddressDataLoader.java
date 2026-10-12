@@ -1,7 +1,6 @@
 package com.projects.kozip.address.batch;
 
 import com.projects.kozip.address.entity.RoadAddress;
-import com.projects.kozip.address.repository.RoadAddressRepository;
 import com.projects.kozip.config.DataPathProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +16,12 @@ import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.security.MessageDigest;
+import java.util.HexFormat;
+import org.springframework.dao.DataAccessException;
+import java.sql.SQLException;
 
 @Slf4j
 @Component
@@ -28,16 +33,14 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AddressDataLoader implements ApplicationRunner {
 
-    private final RoadAddressRepository repository;
+    private final AddressBatchStore store;
     private final DataPathProperties properties;
-
-    private static final int BATCH_SIZE = 5000;
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
-        if (repository.count() > 0) {
-            log.info("주소 데이터가 이미 존재합니다. 적재를 건너뜁니다.");
-            return;
+        if (properties.getPath() == null || properties.getPath().isBlank()
+                || properties.getBatchSize() < 1) {
+            throw new IllegalArgumentException("DATA_PATH와 양수 DATA_BATCH_SIZE를 설정해야 합니다.");
         }
 
         File dir = new File(properties.getPath());
@@ -49,6 +52,8 @@ public class AddressDataLoader implements ApplicationRunner {
             return;
         }
 
+        store.initialize();
+        Arrays.sort(files, Comparator.comparing(File::getName));
         for (File file : files) {
             log.info("적재 시작: {}", file.getName());
             loadFile(file);
@@ -57,28 +62,81 @@ public class AddressDataLoader implements ApplicationRunner {
     }
 
     private void loadFile(File file) throws Exception {
-        List<RoadAddress> batch = new ArrayList<>();
+        String fingerprint = fingerprint(file);
+        AddressBatchStore.Progress progress = store.progress(file.getName(), fingerprint);
+        if (progress.completed()) {
+            log.info("이미 완료된 파일: {}", file.getName());
+            return;
+        }
+        List<RoadAddress> batch = new ArrayList<>(properties.getBatchSize());
+        long lineNumber = 0;
+        long lastCheckpoint = progress.lineNumber();
+        log.info("{}: {}행 이후부터 재개", file.getName(), lastCheckpoint);
 
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(new FileInputStream(file), Charset.forName("EUC-KR")))) {
 
             String line;
             while ((line = reader.readLine()) != null) {
+                lineNumber++;
+                if (lineNumber <= progress.lineNumber()) continue;
                 String[] col = line.split("\\|", -1);
-                if (col.length < 24) continue;
-
-                batch.add(parse(col));
-
-                if (batch.size() == BATCH_SIZE) {
-                    repository.saveAll(batch);
+                if (col.length < 24) {
+                    throw new IllegalArgumentException(file.getName() + ": " + lineNumber + "행의 필드 수가 부족합니다.");
+                }
+                try {
+                    batch.add(parse(col));
+                } catch (RuntimeException ex) {
+                    throw new IllegalArgumentException(file.getName() + ": " + lineNumber + "행 파싱 실패", ex);
+                }
+                if (batch.size() == properties.getBatchSize()) {
+                    saveWithRetry(batch, file, fingerprint, lineNumber, false);
                     batch.clear();
+                    lastCheckpoint = lineNumber;
+                    log.info("{}: {}행 저장 완료", file.getName(), lineNumber);
                 }
             }
 
-            if (!batch.isEmpty()) {
-                repository.saveAll(batch);
+            if (lineNumber < lastCheckpoint) {
+                throw new IllegalStateException("파일이 적재 도중 변경되었습니다: " + file.getName());
+            }
+            saveWithRetry(batch, file, fingerprint, lineNumber, true);
+        }
+    }
+
+    // SHA-256 해시값을 문자열로 반환
+    private String fingerprint(File file) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (FileInputStream input = new FileInputStream(file)) {
+            byte[] buffer = new byte[65536];
+            int size;
+            while ((size = input.read(buffer)) != -1) digest.update(buffer, 0, size);
+        }
+        return HexFormat.of().formatHex(digest.digest());
+    }
+
+    // 저장할 때 연결오류가 나도 재시도
+    private void saveWithRetry(List<RoadAddress> batch, File file, String fingerprint,
+                               long lineNumber, boolean completed) throws InterruptedException {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                store.save(batch, file.getName(), fingerprint, lineNumber, completed);
+                return;
+            } catch (DataAccessException ex) {
+                if (attempt >= 3 || !isConnectionFailure(ex)) throw ex;
+                log.warn("{}: {}행 저장 중 연결 실패, 재시도 {}/2", file.getName(), lineNumber, attempt);
+                Thread.sleep(1000L * attempt);
             }
         }
+    }
+
+    // 재시도할 오류인지 구분
+    private boolean isConnectionFailure(Throwable ex) {
+        for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SQLException sql && sql.getSQLState() != null
+                    && sql.getSQLState().startsWith("08")) return true;
+        }
+        return false;
     }
 
     private RoadAddress parse(String[] col) {
