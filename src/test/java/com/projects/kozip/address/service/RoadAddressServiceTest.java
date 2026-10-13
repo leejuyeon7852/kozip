@@ -1,13 +1,15 @@
 package com.projects.kozip.address.service;
 
 import com.projects.kozip.address.repository.RoadAddressRepository;
+import com.projects.kozip.address.search.AddressQueryParser;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
 class RoadAddressServiceTest {
     private final RoadAddressRepository repository = mock(RoadAddressRepository.class);
-    private final RoadAddressService service = new RoadAddressService(repository);
+    private final RoadAddressService service =
+            new RoadAddressService(repository, new AddressQueryParser());
 
     @Test
     void zipCodeSkipsRegionQueries() {
