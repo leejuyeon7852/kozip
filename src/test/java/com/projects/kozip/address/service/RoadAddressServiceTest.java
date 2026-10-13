@@ -23,9 +23,17 @@ class RoadAddressServiceTest {
     }
 
     @Test
-    void fullAddressUsesSidoFilterAndRemainingKeywords() {
+    void fullAddressUsesRoadSearchWithRegionFilters() {
         service.search("서울 강남구 테헤란로33길");
-        verify(repository).search("+강남구* +테헤란로33길*", null, "서울특별시");
+
+        verify(repository).searchByRoad(
+                "테헤란로33길",
+                "서울특별시",
+                "강남구",
+                null,
+                null);
+
+        verifyNoMoreInteractions(repository);
     }
 
     @Test

@@ -29,3 +29,12 @@ springdoc:
     path: /swagger-ui.html
     groups-order: desc
     operations-sorter: method
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
