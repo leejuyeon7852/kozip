@@ -7,6 +7,8 @@ import com.projects.kozip.address.repository.RoadAddressRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import java.util.Arrays;
 import java.util.List;
@@ -18,6 +20,19 @@ public class RoadAddressService {
     private final RoadAddressRepository repository;
 
     private static final int TOO_MANY_RESULTS = 1000;
+
+    private static final Pattern BUILDING_NUMBER =
+            Pattern.compile("^(\\d{1,6})(?:-(\\d{1,6}))?$");
+
+    private static final Pattern ROAD_NAME =
+            Pattern.compile("[가-힣A-Za-z0-9·.]+(?:대로|로|길)");
+
+    private record RoadInput(
+            String roadName,
+            String sigungu,
+            Integer buildingMain,
+            Integer buildingSub) {
+    }
 
     private static String normalizeSido(String token) {
         return switch (token) {
@@ -82,6 +97,25 @@ public class RoadAddressService {
                     .build();
         }
 
+        RoadInput roadInput = parseRoadInput(parts);
+
+        if (roadInput != null) {
+            long roadStart = System.nanoTime();
+
+            List<RoadAddress> addresses = repository.searchByRoad(
+                    roadInput.roadName(),
+                    sido,
+                    roadInput.sigungu(),
+                    roadInput.buildingMain(),
+                    roadInput.buildingSub());
+
+            log.info("검색 단계: 도로명 조회, 결과: {}, 소요시간: {}ms",
+                    addresses.size(),
+                    (System.nanoTime() - roadStart) / 1_000_000);
+
+            return toSearchResponse(addresses);
+        }
+
         Integer buildingMain = null;
         String[] keywordParts = parts;
 
@@ -130,6 +164,41 @@ public class RoadAddressService {
                 .build();
     }
 
+    private RoadInput parseRoadInput(String[] parts) {
+        int end = parts.length;
+        Integer main = null;
+        Integer sub = null;
+
+        if (end > 1) {
+            Matcher number = BUILDING_NUMBER.matcher(parts[end - 1]);
+
+            if (number.matches()) {
+                main = Integer.valueOf(number.group(1));
+                sub = number.group(2) == null
+                        ? 0 : Integer.valueOf(number.group(2));
+                end--;
+            }
+        }
+
+        int start = 0;
+        String sigungu = null;
+
+        // 우선 단일 시군구 토큰 지원: 강남구, 성북구 등
+        if (end > 1 && parts[0].matches("[가-힣]+[시군구]")) {
+            sigungu = parts[0];
+            start++;
+        }
+
+        String roadName = String.join("",
+                Arrays.copyOfRange(parts, start, end));
+
+        if (!ROAD_NAME.matcher(roadName).matches()) {
+            return null;
+        }
+
+        return new RoadInput(roadName, sigungu, main, sub);
+    }
+
     private AddressSearchResponse searchByZipCode(String zipCode) {
         List<RoadAddress> addresses = repository.findByZipCode(zipCode);
         List<AddressResponse> results = addresses.stream()
@@ -170,6 +239,25 @@ public class RoadAddressService {
                 .zipCode(address.getZipCode())
                 .roadAddress(roadAddress)
                 .jibunAddress(jibunAddress)
+                .build();
+    }
+
+    private AddressSearchResponse toSearchResponse(
+            List<RoadAddress> addresses) {
+
+        if (addresses.size() > TOO_MANY_RESULTS) {
+            return AddressSearchResponse.builder()
+                    .message("검색 결과가 너무 많습니다. 더 자세하게 검색해주세요.")
+                    .count(addresses.size())
+                    .results(List.of())
+                    .build();
+        }
+
+        return AddressSearchResponse.builder()
+                .count(addresses.size())
+                .results(addresses.stream()
+                        .map(this::toResponse)
+                        .toList())
                 .build();
     }
 }

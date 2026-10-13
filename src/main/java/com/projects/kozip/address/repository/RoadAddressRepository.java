@@ -23,4 +23,21 @@ public interface RoadAddressRepository extends JpaRepository<RoadAddress, String
             @Param("keyword") String keyword,
             @Param("buildingMain") Integer buildingMain,
             @Param("sido") String sido);
+
+    @Query(value = """
+        SELECT *
+        FROM road_address
+        WHERE road_name = :roadName
+          AND (:sido IS NULL OR sido = :sido)
+          AND (:sigungu IS NULL OR sigungu = :sigungu)
+          AND (:buildingMain IS NULL OR building_main = :buildingMain)
+          AND (:buildingSub IS NULL OR building_sub = :buildingSub)
+        LIMIT 1001
+        """, nativeQuery = true)
+    List<RoadAddress> searchByRoad(
+            @Param("roadName") String roadName,
+            @Param("sido") String sido,
+            @Param("sigungu") String sigungu,
+            @Param("buildingMain") Integer buildingMain,
+            @Param("buildingSub") Integer buildingSub);
 }
