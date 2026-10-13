@@ -23,7 +23,7 @@ public class RoadAddressController {
         long start = System.currentTimeMillis();
         AddressSearchResponse response = service.search(query);
         long elapsed = System.currentTimeMillis() - start;
-        log.info("검색어: {}, 결과: {}, 소요시간: {}ms", query, response.getCount(), elapsed);
+        log.info("검색어: {}, 결과: {}, 소요시간: {}ms", query, response.count(), elapsed);
 
         return ResponseEntity.ok(response);
     }

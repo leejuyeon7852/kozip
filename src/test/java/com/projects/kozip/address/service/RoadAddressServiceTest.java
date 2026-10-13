@@ -1,5 +1,6 @@
 package com.projects.kozip.address.service;
 
+import com.projects.kozip.address.mapper.AddressResponseMapper;
 import com.projects.kozip.address.repository.RoadAddressRepository;
 import com.projects.kozip.address.search.AddressQueryParser;
 import org.junit.jupiter.api.Test;
@@ -9,7 +10,10 @@ import static org.mockito.Mockito.*;
 class RoadAddressServiceTest {
     private final RoadAddressRepository repository = mock(RoadAddressRepository.class);
     private final RoadAddressService service =
-            new RoadAddressService(repository, new AddressQueryParser());
+            new RoadAddressService(
+                    repository,
+                    new AddressQueryParser(),
+                    new AddressResponseMapper());
 
     @Test
     void zipCodeSkipsRegionQueries() {
@@ -20,7 +24,7 @@ class RoadAddressServiceTest {
 
     @Test
     void sidoOnlyRequestsMoreDetailWithoutQueryingDatabase() {
-        assertEquals("더 자세하게 검색해주세요.", service.search("서울").getMessage());
+        assertEquals("더 자세하게 검색해주세요.", service.search("서울").message());
         verifyNoInteractions(repository);
     }
 
@@ -41,7 +45,7 @@ class RoadAddressServiceTest {
     @Test
     void sidoAndSigunguOnlyRequestMoreDetail() {
         when(repository.existsBySigungu("강남구")).thenReturn(true);
-        assertEquals("더 자세하게 검색해주세요.", service.search("서울 강남구").getMessage());
+        assertEquals("더 자세하게 검색해주세요.", service.search("서울 강남구").message());
         verify(repository).existsBySigungu("강남구");
         verifyNoMoreInteractions(repository);
     }

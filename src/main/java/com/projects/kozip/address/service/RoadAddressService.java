@@ -6,6 +6,7 @@ import com.projects.kozip.address.dto.search.FullTextInput;
 import com.projects.kozip.address.dto.search.RegionInput;
 import com.projects.kozip.address.dto.search.RoadInput;
 import com.projects.kozip.address.entity.RoadAddress;
+import com.projects.kozip.address.mapper.AddressResponseMapper;
 import com.projects.kozip.address.repository.RoadAddressRepository;
 import com.projects.kozip.address.search.AddressQueryParser;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import java.util.List;
 public class RoadAddressService {
     private final RoadAddressRepository repository;
     private final AddressQueryParser queryParser;
+    private final AddressResponseMapper responseMapper;
 
     private static final int TOO_MANY_RESULTS = 1000;
 
@@ -104,43 +106,12 @@ public class RoadAddressService {
     private AddressSearchResponse searchByZipCode(String zipCode) {
         List<RoadAddress> addresses = repository.findByZipCode(zipCode);
         List<AddressResponse> results = addresses.stream()
-                .map(this::toResponse)
+                .map(responseMapper::toResponse)
                 .toList();
 
         return AddressSearchResponse.builder()
                 .count(results.size())
                 .results(results)
-                .build();
-    }
-
-    private AddressResponse toResponse(RoadAddress address) {
-        String building = address.getBuildingMain() +
-                (address.getBuildingSub() != 0 ? "-" + address.getBuildingSub() : "");
-        String jibun = address.getJibunMain() + (address.getJibunSub() != 0 ? "-" + address.getJibunSub() : "");
-
-        String roadAddress = String.join(" ",
-                address.getSido(),
-                address.getSigungu() != null ? address.getSigungu() : "",
-                address.getEupmyeondong(),
-                address.getRoadName(),
-                building
-        ).replaceAll(" +", " ").trim();
-        if (address.getBuildingName() != null) {
-            roadAddress += " (" + address.getBuildingName() + ")";
-        }
-
-        String jibunAddress = String.join(" ",
-                address.getSido(),
-                address.getSigungu() != null ? address.getSigungu() : "",
-                address.getEupmyeondong(),
-                address.getRi() != null ? address.getRi() : "",
-                jibun
-        ).replaceAll(" +", " ").trim();
-
-        return AddressResponse.builder()
-                .zipCode(address.getZipCode())
-                .roadAddress(roadAddress)
-                .jibunAddress(jibunAddress)
                 .build();
     }
 
@@ -158,7 +129,7 @@ public class RoadAddressService {
         return AddressSearchResponse.builder()
                 .count(addresses.size())
                 .results(addresses.stream()
-                        .map(this::toResponse)
+                        .map(responseMapper::toResponse)
                         .toList())
                 .build();
     }

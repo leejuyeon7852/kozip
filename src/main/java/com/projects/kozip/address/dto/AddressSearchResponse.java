@@ -5,10 +5,9 @@ import lombok.Getter;
 
 import java.util.List;
 
-@Getter
 @Builder
-public class AddressSearchResponse {
-    private String message;
-    private int count;
-    private List<AddressResponse> results;
+public record AddressSearchResponse(
+        String message,
+        int count,
+        List<AddressResponse> results) {
 }
