@@ -27,17 +27,18 @@ public class RoadAddressService {
                     .results(List.of())
                     .build();
         }
+        // 우편번호 조회
+        if (trimmed.matches("\\d{5}")) {
+            return searchByZipCode(trimmed);
+        }
 
+        // 시도, 시군구로 입력했을 시 ex) 서울시, 강남구,
         if (repository.existsBySidoContaining(trimmed) || repository.existsBySigunguContaining(trimmed)) {
             return AddressSearchResponse.builder()
                     .message("더 자세하게 검색해주세요.")
                     .count(0)
                     .results(List.of())
                     .build();
-        }
-
-        if (trimmed.matches("\\d{5}")) {
-            return searchByZipCode(trimmed);
         }
 
         String[] parts = trimmed.split("\\s+");
