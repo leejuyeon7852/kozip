@@ -5,17 +5,42 @@ import com.projects.kozip.address.dto.AddressSearchResponse;
 import com.projects.kozip.address.entity.RoadAddress;
 import com.projects.kozip.address.repository.RoadAddressRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RoadAddressService {
     private final RoadAddressRepository repository;
 
     private static final int TOO_MANY_RESULTS = 1000;
+
+    private static String normalizeSido(String token) {
+        return switch (token) {
+            case "서울", "서울시", "서울특별시" -> "서울특별시";
+            case "부산", "부산시", "부산광역시" -> "부산광역시";
+            case "대구", "대구시", "대구광역시" -> "대구광역시";
+            case "인천", "인천시", "인천광역시" -> "인천광역시";
+            case "광주", "광주시", "광주광역시" -> "광주광역시";
+            case "대전", "대전시", "대전광역시" -> "대전광역시";
+            case "울산", "울산시", "울산광역시" -> "울산광역시";
+            case "세종", "세종시", "세종특별자치시" -> "세종특별자치시";
+            case "경기", "경기도" -> "경기도";
+            case "강원", "강원도", "강원특별자치도" -> "강원특별자치도";
+            case "충북", "충청북도" -> "충청북도";
+            case "충남", "충청남도" -> "충청남도";
+            case "전북", "전라북도", "전북특별자치도" -> "전북특별자치도";
+            case "전남", "전라남도" -> "전라남도";
+            case "경북", "경상북도" -> "경상북도";
+            case "경남", "경상남도" -> "경상남도";
+            case "제주", "제주도", "제주특별자치도" -> "제주특별자치도";
+            default -> null;
+        };
+    }
 
     public AddressSearchResponse search(String query) {
         String trimmed = query.trim();
@@ -32,8 +57,24 @@ public class RoadAddressService {
             return searchByZipCode(trimmed);
         }
 
-        // 시도, 시군구로 입력했을 시 ex) 서울시, 강남구,
-        if (repository.existsBySidoContaining(trimmed) || repository.existsBySigunguContaining(trimmed)) {
+        String[] parts = trimmed.split("\\s+");
+        String sido = normalizeSido(parts[0]);
+        if (sido != null) {
+            parts = Arrays.copyOfRange(parts, 1, parts.length);
+        }
+        String remaining = String.join(" ", parts);
+        // 시도만 입력하거나, 남은 검색어가 시군구뿐이면 상세 입력 요청
+        long regionStart = System.nanoTime();
+
+        boolean regionCandidate = remaining.matches("[가-힣]+[시군구]");
+
+        boolean regionOnly = parts.length == 0
+                || (regionCandidate && repository.existsBySigungu(remaining));
+
+        log.info("검색 단계: 지역 검사, 소요시간: {}ms",
+                (System.nanoTime() - regionStart) / 1_000_000);
+
+        if (regionOnly) {
             return AddressSearchResponse.builder()
                     .message("더 자세하게 검색해주세요.")
                     .count(0)
@@ -41,7 +82,6 @@ public class RoadAddressService {
                     .build();
         }
 
-        String[] parts = trimmed.split("\\s+");
         Integer buildingMain = null;
         String[] keywordParts = parts;
 
@@ -64,17 +104,22 @@ public class RoadAddressService {
                 .map(p -> "+" + p + "*")
                 .collect(java.util.stream.Collectors.joining(" "));
 
-        long count = repository.countSearch(matchKeyword, buildingMain);
+        long searchStart = System.nanoTime();
 
-        if (count > TOO_MANY_RESULTS) {
+        List<RoadAddress> addresses =
+                repository.search(matchKeyword, buildingMain, sido);
+
+        log.info("검색 단계: FULLTEXT 결과 조회, 결과: {}, 소요시간: {}ms",
+                addresses.size(), (System.nanoTime() - searchStart) / 1_000_000);
+
+        if (addresses.size() > TOO_MANY_RESULTS) {
             return AddressSearchResponse.builder()
                     .message("검색 결과가 너무 많습니다. 더 자세하게 검색해주세요.")
-                    .count((int) count)
+                    .count(addresses.size())
                     .results(List.of())
                     .build();
         }
 
-        List<RoadAddress> addresses = repository.search(matchKeyword, buildingMain);
         List<AddressResponse> results = addresses.stream()
                 .map(this::toResponse)
                 .toList();
