@@ -9,6 +9,8 @@ import com.projects.kozip.address.entity.RoadAddress;
 import com.projects.kozip.address.mapper.AddressResponseMapper;
 import com.projects.kozip.address.repository.RoadAddressRepository;
 import com.projects.kozip.address.search.AddressQueryParser;
+import com.projects.kozip.common.exception.SearchException;
+import com.projects.kozip.common.response.ResponseCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,11 +31,7 @@ public class RoadAddressService {
         String trimmed = query.trim();
 
         if (trimmed.length() < 2) {
-            return AddressSearchResponse.builder()
-                    .message("검색어는 2글자 이상 입력해주세요.")
-                    .count(0)
-                    .results(List.of())
-                    .build();
+            throw new SearchException(ResponseCode.SEARCH_QUERY_TOO_SHORT);
         }
 
         if (queryParser.isZipCode(trimmed)) {
@@ -48,15 +46,11 @@ public class RoadAddressService {
                 || (region.isSigunguCandidate()
                 && repository.existsBySigungu(region.remaining()));
 
-        log.info("검색 단계: 지역 검사, 소요시간: {}ms",
+        log.debug("검색 단계: 지역 검사, 소요시간: {}ms",
                 (System.nanoTime() - regionStart) / 1_000_000);
 
         if (regionOnly) {
-            return AddressSearchResponse.builder()
-                    .message("더 자세하게 검색해주세요.")
-                    .count(0)
-                    .results(List.of())
-                    .build();
+            throw new SearchException(ResponseCode.SEARCH_QUERY_TOO_BROAD);
         }
 
         String[] parts = region.parts();
@@ -72,7 +66,7 @@ public class RoadAddressService {
                     roadInput.buildingMain(),
                     roadInput.buildingSub());
 
-            log.info("검색 단계: 도로명 조회, 결과: {}, 소요시간: {}ms",
+            log.debug("검색 단계: 도로명 조회, 결과: {}, 소요시간: {}ms",
                     addresses.size(),
                     (System.nanoTime() - roadStart) / 1_000_000);
 
@@ -82,11 +76,7 @@ public class RoadAddressService {
         FullTextInput fullTextInput = queryParser.parseFullText(parts);
 
         if (fullTextInput.isTooShort()) {
-            return AddressSearchResponse.builder()
-                    .message("검색어는 2글자 이상 입력해주세요.")
-                    .count(0)
-                    .results(List.of())
-                    .build();
+            throw new SearchException(ResponseCode.SEARCH_QUERY_TOO_SHORT);
         }
 
         long searchStart = System.nanoTime();
@@ -96,7 +86,7 @@ public class RoadAddressService {
                 fullTextInput.buildingMain(),
                 region.sido());
 
-        log.info("검색 단계: FULLTEXT 결과 조회, 결과: {}, 소요시간: {}ms",
+        log.debug("검색 단계: FULLTEXT 결과 조회, 결과: {}, 소요시간: {}ms",
                 addresses.size(),
                 (System.nanoTime() - searchStart) / 1_000_000);
 
@@ -119,11 +109,7 @@ public class RoadAddressService {
             List<RoadAddress> addresses) {
 
         if (addresses.size() > TOO_MANY_RESULTS) {
-            return AddressSearchResponse.builder()
-                    .message("검색 결과가 너무 많습니다. 더 자세하게 검색해주세요.")
-                    .count(addresses.size())
-                    .results(List.of())
-                    .build();
+            throw new SearchException(ResponseCode.SEARCH_TOO_MANY_RESULTS);
         }
 
         return AddressSearchResponse.builder()

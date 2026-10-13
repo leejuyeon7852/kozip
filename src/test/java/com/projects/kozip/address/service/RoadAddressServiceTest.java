@@ -3,8 +3,11 @@ package com.projects.kozip.address.service;
 import com.projects.kozip.address.mapper.AddressResponseMapper;
 import com.projects.kozip.address.repository.RoadAddressRepository;
 import com.projects.kozip.address.search.AddressQueryParser;
+import com.projects.kozip.common.exception.SearchException;
+import com.projects.kozip.common.response.ResponseCode;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 class RoadAddressServiceTest {
@@ -24,8 +27,31 @@ class RoadAddressServiceTest {
 
     @Test
     void sidoOnlyRequestsMoreDetailWithoutQueryingDatabase() {
-        assertEquals("더 자세하게 검색해주세요.", service.search("서울").message());
+        SearchException exception = assertThrows(
+                SearchException.class,
+                () -> service.search("서울"));
+
+        assertEquals(
+                ResponseCode.SEARCH_QUERY_TOO_BROAD,
+                exception.responseCode());
+
         verifyNoInteractions(repository);
+    }
+
+    @Test
+    void sidoAndSigunguOnlyRequestMoreDetail() {
+        when(repository.existsBySigungu("강남구")).thenReturn(true);
+
+        SearchException exception = assertThrows(
+                SearchException.class,
+                () -> service.search("서울 강남구"));
+
+        assertEquals(
+                ResponseCode.SEARCH_QUERY_TOO_BROAD,
+                exception.responseCode());
+
+        verify(repository).existsBySigungu("강남구");
+        verifyNoMoreInteractions(repository);
     }
 
     @Test
@@ -42,11 +68,4 @@ class RoadAddressServiceTest {
         verifyNoMoreInteractions(repository);
     }
 
-    @Test
-    void sidoAndSigunguOnlyRequestMoreDetail() {
-        when(repository.existsBySigungu("강남구")).thenReturn(true);
-        assertEquals("더 자세하게 검색해주세요.", service.search("서울 강남구").message());
-        verify(repository).existsBySigungu("강남구");
-        verifyNoMoreInteractions(repository);
-    }
 }
