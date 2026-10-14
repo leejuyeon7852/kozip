@@ -2,6 +2,8 @@ package com.projects.kozip.address.controller;
 
 import com.projects.kozip.address.dto.AddressSearchResponse;
 import com.projects.kozip.address.service.RoadAddressService;
+import com.projects.kozip.common.response.BaseResponse;
+import com.projects.kozip.common.response.ResponseCode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -19,12 +21,21 @@ public class RoadAddressController {
 
     @GetMapping
     @Operation(summary = "주소 검색 API")
-    public ResponseEntity<AddressSearchResponse> search(@RequestParam String query){
-        long start = System.currentTimeMillis();
-        AddressSearchResponse response = service.search(query);
-        long elapsed = System.currentTimeMillis() - start;
-        log.info("검색어: {}, 결과: {}, 소요시간: {}ms", query, response.getCount(), elapsed);
+    public ResponseEntity<BaseResponse<AddressSearchResponse>> search(@RequestParam String query) {
 
-        return ResponseEntity.ok(response);
+        long start = System.nanoTime();
+
+        AddressSearchResponse response = service.search(query);
+
+        ResponseCode code = response.count() == 0
+                ? ResponseCode.ADDRESS_SEARCH_EMPTY
+                : ResponseCode.ADDRESS_SEARCH_OK;
+
+        log.info("주소 검색 완료: code={}, count={}, elapsedMs={}",
+                code.name(),
+                response.count(),
+                (System.nanoTime() - start) / 1_000_000);
+
+        return ResponseEntity.ok(BaseResponse.success(code, response));
     }
 }
